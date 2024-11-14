@@ -16,8 +16,20 @@ try {
     const firebaseApp = initializeApp(JSON.parse(jsonConfig))
     const messaging = getMessaging(firebaseApp)
 
-    function isChrome() {
-        return navigator.userAgent.toLowerCase().includes("chrome")
+    function isSafari() {
+        return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    }
+
+    function isIOS() {
+        return [
+            'iPad Simulator',
+            'iPhone Simulator',
+            'iPod Simulator',
+            'iPad',
+            'iPhone',
+            'iPod'
+        ].includes(navigator.platform)
+        || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
     }
 
     onBackgroundMessage(messaging, (payload) => {
@@ -36,23 +48,40 @@ try {
         if (payload.data.creation) {
             notificationOptions["timestamp"] = payload.data.creation
         }
+
         const url = `${payload.data.base_url}/raven/channel/${payload.data.channel_id}`
-        if (isChrome()) {
-            notificationOptions["data"] = {
-                url: url,
-            }
-        } else {
+
+        // Handle different browsers
+        if (isIOS() && isSafari() && parseInt(navigator.userAgent.match(/Version\/(\d+)/)[1]) >= 16) {
+            // iOS Safari 16.4+ handling
             notificationOptions["actions"] = [
                 {
                     action: url,
                     title: "View",
                 },
             ]
+        } else {
+            // Default handling for other browsers
+            notificationOptions["data"] = {
+                url: url,
+            }
         }
+
         self.registration.showNotification(notificationTitle, notificationOptions)
     })
 
-    if (isChrome()) {
+    if (isIOS() && isSafari() && parseInt(navigator.userAgent.match(/Version\/(\d+)/)[1]) >= 16) {
+        self.addEventListener("notificationclick", (event) => {
+            event.stopImmediatePropagation()
+            event.notification.close()
+            
+            // Handle iOS action click
+            if (event.action) {
+                clients.openWindow(event.action)
+            }
+        })
+    } else {
+        // Handle other browsers
         self.addEventListener("notificationclick", (event) => {
             event.stopImmediatePropagation()
             event.notification.close()
