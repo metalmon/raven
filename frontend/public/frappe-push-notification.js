@@ -151,6 +151,32 @@ class FrappePushNotification {
         return localStorage.getItem(`firebase_token_${this.projectName}`) !== null
     }
 
+    // Add iOS version check
+    static isIOSVersionSupported() {
+        const iOSMatch = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+        if (iOSMatch) {
+            const majorVersion = parseInt(iOSMatch[1], 10);
+            const minorVersion = parseInt(iOSMatch[2], 10);
+            // iOS 16.4 or later is supported
+            return (majorVersion > 16 || (majorVersion === 16 && minorVersion >= 4));
+        }
+        return false;
+    }
+
+    // Update iOS detection
+    static isIOS() {
+        return [
+            'iPad Simulator',
+            'iPhone Simulator',
+            'iPod Simulator',
+            'iPad',
+            'iPhone',
+            'iPod'
+        ].includes(navigator.platform)
+        // iPad on iOS 13 detection
+        || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+    }
+
     /**
      * Enable notification
      * This will return notification permission status and token
@@ -159,8 +185,22 @@ class FrappePushNotification {
      */
     async enableNotification() {
         if (!(await isSupported())) {
-            throw new Error("Push notifications are not supported on your device")
+            throw new Error("Push notifications are not supported on your device");
         }
+
+        // Check for iOS
+        if (FrappePushNotification.isIOS()) {
+            // Check if iOS version supports web push
+            if (!FrappePushNotification.isIOSVersionSupported()) {
+                throw new Error("Push notifications require iOS 16.4 or later. Please update your device.");
+            }
+
+            // Check if running in standalone mode (added to home screen)
+            if (window.navigator.standalone !== true) {
+                throw new Error("Please add this app to your home screen to enable push notifications on iOS.");
+            }
+        }
+
         // Return if token already presence in the instance
         if (this.token != null) {
             return {
