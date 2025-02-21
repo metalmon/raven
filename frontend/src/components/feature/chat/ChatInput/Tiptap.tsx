@@ -1,7 +1,7 @@
 import { BubbleMenu, EditorContent, EditorContext, Extension, ReactRenderer, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
-import React, { Suspense, lazy, useContext, useEffect, useMemo, useRef } from 'react'
+import React, { Suspense, forwardRef, lazy, useContext, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { TextFormattingMenu } from './TextFormattingMenu'
 import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
@@ -26,7 +26,7 @@ import json from 'highlight.js/lib/languages/json'
 import python from 'highlight.js/lib/languages/python'
 import { Plugin } from 'prosemirror-state'
 import { Box, Flex, IconButton } from '@radix-ui/themes'
-import { useSessionStickyState } from '@/hooks/useStickyState'
+import { useStickyState } from '@/hooks/useStickyState'
 import { Message } from '../../../../../../types/Messaging/Message'
 import Image from '@tiptap/extension-image'
 import { EmojiSuggestion } from './EmojiSuggestion'
@@ -66,6 +66,7 @@ type TiptapEditorProps = {
     channelMembers?: ChannelMembers,
     channelID?: string,
     onUserType?: () => void,
+    onUpArrow?: () => void,
 }
 
 export const UserMention = Mention.extend({
@@ -88,18 +89,28 @@ export const ChannelMention = Mention.extend({
         }
     })
 
-const Tiptap = ({ isEdit, slotBefore, fileProps, onMessageSend, channelMembers, onUserType, channelID, replyMessage, clearReplyMessage, placeholder = 'Type a message...', messageSending, sessionStorageKey = 'tiptap-editor', disableSessionStorage = false, defaultText = '' }: TiptapEditorProps) => {
+export interface MemberSuggestions extends UserFields {
+    is_member: boolean
+}
+
+const Tiptap = forwardRef(({ isEdit, slotBefore, fileProps, onMessageSend, onUpArrow, channelMembers, onUserType, channelID, replyMessage, clearReplyMessage, placeholder = 'Type a message...', messageSending, sessionStorageKey = 'tiptap-editor', disableSessionStorage = false, defaultText = '' }: TiptapEditorProps, ref) => {
 
     const { enabledUsers } = useContext(UserListContext)
 
-    const channelMembersRef = useRef<UserFields[]>([])
+    const channelMembersRef = useRef<MemberSuggestions[]>([])
 
     useEffect(() => {
         if (channelMembers) {
-            // Filter enabled users to only include users that are in the channel
-            channelMembersRef.current = enabledUsers.filter((user) => user.name in channelMembers)
+            // Sort the user list so that members are at the top
+            channelMembersRef.current = enabledUsers.map((user) => ({
+                ...user,
+                is_member: user.name in channelMembers
+            })).sort((a, b) => a.is_member ? -1 : 1)
         } else {
-            channelMembersRef.current = enabledUsers
+            channelMembersRef.current = enabledUsers.map((user) => ({
+                ...user,
+                is_member: true
+            }))
         }
     }, [channelMembers, enabledUsers])
 
@@ -211,6 +222,13 @@ const Tiptap = ({ isEdit, slotBefore, fileProps, onMessageSend, channelMembers, 
                         () => commands.splitBlock(),
                     ]);
                 },
+                'ArrowUp': () => {
+                    // If the editor is empty, call the onUpArrow function
+                    if (this.editor.isEmpty) {
+                        onUpArrow?.()
+                    }
+                    return false
+                }
             };
         },
         addProseMirrorPlugins() {
@@ -467,7 +485,7 @@ const Tiptap = ({ isEdit, slotBefore, fileProps, onMessageSend, channelMembers, 
         TimestampRenderer
     ]
 
-    const [content, setContent] = useSessionStickyState(defaultText, sessionStorageKey, disableSessionStorage)
+    const [content, setContent] = useStickyState(defaultText, sessionStorageKey, disableSessionStorage)
 
     const editor = useEditor({
         extensions,
@@ -495,6 +513,12 @@ const Tiptap = ({ isEdit, slotBefore, fileProps, onMessageSend, channelMembers, 
             }, 50)
         }
     }, [replyMessage, editor, isMobile, isEdit])
+
+    useImperativeHandle(ref, () => ({
+        focusEditor: () => {
+            editor?.chain().focus().run()
+        }
+    }))
 
 
     if (isMobile) {
@@ -555,6 +579,6 @@ const Tiptap = ({ isEdit, slotBefore, fileProps, onMessageSend, channelMembers, 
 
 
 
-}
+})
 
 export default Tiptap
