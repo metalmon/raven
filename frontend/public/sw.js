@@ -10,6 +10,22 @@ precacheAndRoute(self.__WB_MANIFEST)
 // Clean up old caches
 cleanupOutdatedCaches()
 
+// Check if URL matches the scope
+function isInScope(url) {
+    return url.pathname.startsWith('/raven/');
+}
+
+// Add navigation handler
+self.addEventListener('fetch', (event) => {
+    if (event.request.mode === 'navigate') {
+        const url = new URL(event.request.url);
+        if (!isInScope(url)) {
+            event.respondWith(fetch(event.request));
+            return;
+        }
+    }
+});
+
 const jsonConfig = new URL(location).searchParams.get("config")
 // Firebase config initialization
 try {

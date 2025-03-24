@@ -17,10 +17,11 @@ export default defineConfig(({ command, mode }) => {
 			outDir: "../raven/public/raven",
 			manifest: {
 				name: "Raven",
-				start_url: `/${env.VITE_BASE_NAME}`,
+				start_url: `/${env.VITE_BASE_NAME}/`,
 				short_name: "Raven",
 				description: "Simple, work messaging tool.",
 				display: "standalone",
+				scope: `/${env.VITE_BASE_NAME}/`,
 				"icons": [
 					{
 						"src": "/assets/raven/manifest/android-chrome-192x192.png",
