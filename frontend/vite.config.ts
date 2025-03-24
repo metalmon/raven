@@ -13,8 +13,34 @@ export default defineConfig(({ command, mode }) => {
 		plugins: [react(), svgr(), VitePWA({
 			registerType: "autoUpdate",
 			strategies: "injectManifest",
-			injectRegister: null,
+			injectRegister: "script",
+			srcDir: "src",
+			filename: "sw.ts",
 			outDir: "../raven/public/raven",
+			devOptions: {
+				enabled: true,
+				type: "module"
+			},
+			workbox: {
+				clientsClaim: true,
+				skipWaiting: true,
+				cleanupOutdatedCaches: true,
+				navigateFallback: `/${env.VITE_BASE_NAME}/`,
+				navigateFallbackDenylist: [/^\/crm/],
+				runtimeCaching: [
+					{
+						urlPattern: /^https:\/\/api\./,
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'raven-api-cache',
+							networkTimeoutSeconds: 10,
+							cacheableResponse: {
+								statuses: [0, 200]
+							}
+						}
+					}
+				]
+			},
 			manifest: {
 				name: "Raven",
 				start_url: `/${env.VITE_BASE_NAME}/`,
