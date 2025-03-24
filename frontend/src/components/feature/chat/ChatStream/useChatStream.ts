@@ -215,13 +215,12 @@ const useChatStream = (channelID: string, scrollRef: MutableRefObject<HTMLDivEle
     // If there are new messages in the channel, update the messages
     useFrappeEventListener('message_created', (event) => {
         if (event.channel_id === channelID) {
-
             mutate((d) => {
-                if (d && d.message.has_new_messages === false) {
+                if (d) {
                     // Update the array of messages - append the new message in it and then sort it by date
                     const existingMessages = d.message.messages ?? []
-
                     const newMessages = [...existingMessages]
+                    
                     if (event.message_details) {
                         // Check if the message is already present in the messages array
                         const messageIndex = existingMessages.findIndex(message => message.name === event.message_details.name)
@@ -238,28 +237,25 @@ const useChatStream = (channelID: string, scrollRef: MutableRefObject<HTMLDivEle
                     newMessages.sort((a, b) => {
                         return new Date(b.creation).getTime() - new Date(a.creation).getTime()
                     })
-                    return ({
+                    
+                    return {
                         message: {
                             messages: newMessages,
                             has_old_messages: d.message.has_old_messages ?? false,
-                            has_new_messages: d.message.has_new_messages ?? false
+                            has_new_messages: false // Always set to false after update
                         }
-                    })
-                } else {
-                    return d
+                    }
                 }
-
+                return d
             }, {
                 revalidate: false,
             }).then(() => {
-                if (data?.message.has_new_messages === false) {
-                    if (scrollRef.current) {
-                        const isNearBottom = scrollRef.current.scrollTop + scrollRef.current.clientHeight >=
-                            scrollRef.current.scrollHeight - 100
+                if (scrollRef.current) {
+                    const isNearBottom = scrollRef.current.scrollTop + scrollRef.current.clientHeight >=
+                        scrollRef.current.scrollHeight - 100
 
-                        if (isNearBottom || event.message_details.owner === currentUser) {
-                            scrollToBottom('smooth') // Smooth scroll for better UX when user is watching
-                        }
+                    if (isNearBottom || event.message_details.owner === currentUser) {
+                        scrollToBottom('smooth') // Smooth scroll for better UX when user is watching
                     }
                 }
             })

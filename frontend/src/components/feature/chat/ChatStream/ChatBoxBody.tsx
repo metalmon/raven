@@ -62,15 +62,8 @@ export const ChatBoxBody = ({ channelData }: ChatBoxBodyProps) => {
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const onMessageSendCompleted = (messages: RavenMessage[]) => {
-        // Update the messages in the cache
-
         mutate({ path: `get_messages_for_channel_${channelData.name}` }, (data?: GetMessagesResponse) => {
-            if (data && data?.message.has_new_messages) {
-                return data
-            }
-
             const existingMessages = data?.message.messages ?? []
-
             const newMessages = [...existingMessages]
 
             messages.forEach(message => {
@@ -107,16 +100,11 @@ export const ChatBoxBody = ({ channelData }: ChatBoxBodyProps) => {
                     has_old_messages: data?.message.has_old_messages ?? false
                 }
             }
-
         }, { revalidate: false }).then(() => {
-            // If the user is focused on the page, then we also need to
-            // If the user is the sender of the message, scroll to the bottom
             scrollRef.current?.scrollTo(0, scrollRef.current?.scrollHeight)
         })
 
-        // Stop the typing indicator
         stopTyping()
-        // Clear the selected message
         clearSelectedMessage()
     }
 
