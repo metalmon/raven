@@ -65,13 +65,13 @@ export default defineConfig(({ command, mode }) => {
 			manifest: {
 				name: "Raven",
 				short_name: "Raven",
-				start_url: `/${env.VITE_BASE_NAME}/`,
+				start_url: `/${env.VITE_BASE_NAME}`,
 				display: "standalone",
 				background_color: "#ffffff",
 				theme_color: "#ffffff",
 				description: "Simple, work messaging tool.",
 				lang: "en",
-				scope: `/${env.VITE_BASE_NAME}/`,
+				scope: `/${env.VITE_BASE_NAME}`,
 				orientation: "any",
 				categories: ["productivity", "communication"],
 				icons: [
@@ -106,8 +106,7 @@ export default defineConfig(({ command, mode }) => {
 						type: "image/x-icon"
 					}
 				],
-				id: `/${env.VITE_BASE_NAME}/`,
-				dir: "ltr",
+				id: `${env.VITE_BASE_NAME}`,
 				prefer_related_applications: false,
 				display_override: ["window-controls-overlay"]
 			},
