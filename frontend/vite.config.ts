@@ -12,75 +12,107 @@ export default defineConfig(({ command, mode }) => {
 	return {
 		plugins: [react(), svgr(), VitePWA({
 			registerType: "autoUpdate",
-			strategies: "injectManifest",
-			injectRegister: "script",
-			srcDir: "src",
-			filename: "sw.ts",
-			outDir: "../raven/public/raven",
+			strategies: "generateSW",
+			injectRegister: "auto",
 			devOptions: {
 				enabled: true,
 				type: "module"
 			},
 			workbox: {
-				clientsClaim: true,
-				skipWaiting: true,
-				cleanupOutdatedCaches: true,
-				navigateFallback: `/${env.VITE_BASE_NAME}/`,
-				navigateFallbackDenylist: [/^\/crm/],
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,json}'],
+				navigateFallbackDenylist: [/^\/assets\/.*$/, /^\/api/, /^\/raven/],
 				runtimeCaching: [
 					{
-						urlPattern: /^https:\/\/api\./,
+						urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif)$/,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'raven-images-cache',
+							expiration: {
+								maxEntries: 100,
+								maxAgeSeconds: 30 * 24 * 60 * 60 // 30 days
+							}
+						}
+					},
+					{
+						urlPattern: /^https:\/\/.*\.(css|js)$/,
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'raven-assets-cache',
+							expiration: {
+								maxEntries: 100,
+								maxAgeSeconds: 7 * 24 * 60 * 60 // 7 days
+							}
+						}
+					},
+					{
+						urlPattern: /^https:\/\/.*\/(api|raven)/,
 						handler: 'NetworkFirst',
 						options: {
 							cacheName: 'raven-api-cache',
 							networkTimeoutSeconds: 10,
-							cacheableResponse: {
-								statuses: [0, 200]
+							expiration: {
+								maxEntries: 50,
+								maxAgeSeconds: 24 * 60 * 60 // 24 hours
 							}
 						}
 					}
-				]
+				],
+				navigateFallback: `/${env.VITE_BASE_NAME}/`,
+				skipWaiting: true,
+				clientsClaim: true,
+				cleanupOutdatedCaches: true
 			},
 			manifest: {
 				name: "Raven",
-				start_url: `/${env.VITE_BASE_NAME}/`,
 				short_name: "Raven",
-				description: "Simple, work messaging tool.",
+				start_url: `/${env.VITE_BASE_NAME}/`,
 				display: "standalone",
+				background_color: "#ffffff",
+				theme_color: "#ffffff",
+				description: "Simple, work messaging tool.",
+				lang: "en",
 				scope: `/${env.VITE_BASE_NAME}/`,
-				"icons": [
+				orientation: "any",
+				categories: ["productivity", "communication"],
+				icons: [
 					{
-						"src": "/assets/raven/manifest/android-chrome-192x192.png",
-						"sizes": "192x192",
-						"type": "image/png"
+						src: "/assets/raven/manifest/android-chrome-192x192.png",
+						sizes: "192x192",
+						type: "image/png"
 					},
 					{
-						"src": "/assets/raven/manifest/android-chrome-512x512.png",
-						"sizes": "512x512",
-						"type": "image/png"
+						src: "/assets/raven/manifest/android-chrome-512x512.png",
+						sizes: "512x512",
+						type: "image/png"
 					},
 					{
-						"src": "/assets/raven/manifest/apple-touch-icon.png",
-						"sizes": "180x180",
-						"type": "image/png"
+						src: "/assets/raven/manifest/apple-touch-icon.png",
+						sizes: "180x180",
+						type: "image/png"
 					},
 					{
-						"src": "/assets/raven/manifest/favicon-16x16.png",
-						"sizes": "16x16",
-						"type": "image/png"
+						src: "/assets/raven/manifest/favicon-16x16.png",
+						sizes: "16x16",
+						type: "image/png"
 					},
 					{
-						"src": "/assets/raven/manifest/favicon-32x32.png",
-						"sizes": "32x32",
-						"type": "image/png"
+						src: "/assets/raven/manifest/favicon-32x32.png",
+						sizes: "32x32",
+						type: "image/png"
 					},
 					{
-						"src": "/assets/raven/manifest/favicon.ico",
-						"sizes": "64x64 32x32 24x24 16x16",
-						"type": "image/x-icon"
+						src: "/assets/raven/manifest/favicon.ico",
+						sizes: "64x64 32x32 24x24 16x16",
+						type: "image/x-icon"
 					}
 				],
-			}
+				id: `/${env.VITE_BASE_NAME}/`,
+				dir: "ltr",
+				prefer_related_applications: false,
+				display_override: ["window-controls-overlay"]
+			},
+			includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+			manifestFilename: 'manifest.json'
 		})],
 		server: {
 			port: 8080,
@@ -95,6 +127,10 @@ export default defineConfig(({ command, mode }) => {
 			outDir: "../raven/public/raven",
 			emptyOutDir: true,
 			target: "es2015",
+			sourcemap: true,
+			commonjsOptions: {
+				include: [/tailwind.config.js/, /node_modules/],
+			},
 			rollupOptions: {
 				onwarn(warning, warn) {
 					if (warning.code === "MODULE_LEVEL_DIRECTIVE") {
@@ -103,6 +139,16 @@ export default defineConfig(({ command, mode }) => {
 					warn(warning)
 				}
 			}
+		},
+		optimizeDeps: {
+			include: [
+				'react',
+				'react-dom',
+				'@emotion/react',
+				'@emotion/styled',
+				'@mui/material',
+				'@mui/icons-material'
+			]
 		}
 	};
 });
