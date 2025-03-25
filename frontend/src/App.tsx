@@ -1,4 +1,4 @@
-import { FrappeProvider } from 'frappe-react-sdk'
+import { FrappeProvider, FrappeContext, FrappeConfig } from 'frappe-react-sdk'
 import { Navigate, Route, RouterProvider, createBrowserRouter, createRoutesFromElements } from 'react-router-dom'
 import { MainPage } from './pages/MainPage'
 import { ProtectedRoute } from './utils/auth/ProtectedRoute'
@@ -13,6 +13,21 @@ import ErrorPage from './pages/ErrorPage'
 import WorkspaceSwitcher from './pages/WorkspaceSwitcher'
 import WorkspaceSwitcherGrid from './components/layout/WorkspaceSwitcherGrid'
 import { init } from 'emoji-mart'
+import { useContext, useEffect } from 'react'
+
+declare global {
+  interface Window {
+    frappe: {
+      boot: {
+        sitename: string;
+        socketio_port: number;
+      };
+      react?: {
+        context?: any;
+      };
+    }
+  }
+}
 
 /** Following keys will not be cached in app cache */
 // const NO_CACHE_KEYS = [
@@ -149,9 +164,176 @@ const router = createBrowserRouter(
   basename: import.meta.env.VITE_BASE_NAME ? `/${import.meta.env.VITE_BASE_NAME}` : '',
 }
 )
-function App() {
 
+// Debug component to check FrappeProvider context
+function DebugFrappeContext() {
+  const context = useContext(FrappeContext) as FrappeConfig;
+  
+  // Initial context logging
+  useEffect(() => {
+    console.log('[Raven Debug] Initial FrappeProvider Context:', {
+      ...context,
+      socketConnected: context?.socket?.connected,
+      socketId: context?.socket?.id,
+      socketState: {
+        connected: context?.socket?.connected,
+        disconnected: context?.socket?.disconnected,
+        transport: context?.socket?.io?.engine?.transport?.name,
+        hostname: window.location.hostname,
+        secure: window.location.protocol === 'https:'
+      }
+    });
+  }, []);
+
+  // Socket lifecycle events
+  useEffect(() => {
+    if (context?.socket) {
+      // Connection events
+      context.socket.on('connect', () => {
+        console.log('[Raven Debug] Socket connected:', {
+          id: context.socket?.id,
+          transport: context.socket?.io?.engine?.transport?.name,
+          secure: window.location.protocol === 'https:',
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      context.socket.on('disconnect', (reason: string) => {
+        console.log('[Raven Debug] Socket disconnected:', { 
+          reason,
+          timestamp: new Date().toISOString(),
+          lastSocketId: context.socket?.id
+        });
+      });
+
+      context.socket.on('error', (error: Error) => {
+        console.log('[Raven Debug] Socket error:', {
+          error,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      // Message events
+      context.socket.on('message_created', (data: any) => {
+        console.log('[Raven Debug] Message created event:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      context.socket.on('message_edited', (data: any) => {
+        console.log('[Raven Debug] Message edited event:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      context.socket.on('message_deleted', (data: any) => {
+        console.log('[Raven Debug] Message deleted event:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      context.socket.on('message_reacted', (data: any) => {
+        console.log('[Raven Debug] Message reaction event:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      // Channel events
+      context.socket.on('channel_list_updated', (data: any) => {
+        console.log('[Raven Debug] Channel list updated:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      context.socket.on('channel_members_updated', (data: any) => {
+        console.log('[Raven Debug] Channel members updated:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      // Unread count events
+      context.socket.on('raven:unread_channel_count_updated', (data: any) => {
+        console.log('[Raven Debug] Unread count updated:', {
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      // Reconnection events
+      context.socket.io.on('reconnect_attempt', (attempt: number) => {
+        console.log('[Raven Debug] Socket reconnection attempt:', {
+          attempt,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      context.socket.io.on('reconnect', (attempt: number) => {
+        console.log('[Raven Debug] Socket reconnected:', {
+          attempt,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id,
+          transport: context.socket?.io?.engine?.transport?.name
+        });
+      });
+
+      context.socket.io.on('reconnect_error', (error: Error) => {
+        console.log('[Raven Debug] Socket reconnection error:', {
+          error,
+          timestamp: new Date().toISOString(),
+          socketId: context.socket?.id
+        });
+      });
+
+      // Cleanup function
+      return () => {
+        context.socket?.off('connect');
+        context.socket?.off('disconnect');
+        context.socket?.off('error');
+        context.socket?.off('message_created');
+        context.socket?.off('message_edited');
+        context.socket?.off('message_deleted');
+        context.socket?.off('message_reacted');
+        context.socket?.off('channel_list_updated');
+        context.socket?.off('channel_members_updated');
+        context.socket?.off('raven:unread_channel_count_updated');
+        context.socket?.io.off('reconnect_attempt');
+        context.socket?.io.off('reconnect');
+        context.socket?.io.off('reconnect_error');
+      };
+    }
+  }, [context?.socket]);
+
+  return null;
+}
+
+function App() {
   const [appearance, setAppearance] = useStickyState<'light' | 'dark' | 'inherit'>('dark', 'appearance');
+
+  // Debug logging for production
+  console.log('Before FrappeProvider:', {
+    frappe: window.frappe,
+    boot: window.frappe?.boot,
+    location: window.location.origin,
+    protocol: window.location.protocol,
+    socketPort: window.frappe?.boot?.socketio_port,
+    siteName: window.frappe?.boot?.sitename,
+    wsUrl: `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${window.frappe?.boot?.socketio_port}`
+  });
 
   // We not need to pass sitename if the Frappe version is v14.
 
@@ -169,15 +351,15 @@ function App() {
 
   return (
     <FrappeProvider
-      url={import.meta.env.VITE_FRAPPE_PATH ?? ''}
-      socketPort={import.meta.env.VITE_SOCKET_PORT ? import.meta.env.VITE_SOCKET_PORT : undefined}
-      //@ts-ignore
+      url={window.location.origin}
+      socketPort={(window.frappe.boot.socketio_port ?? 9000).toString()}
       swrConfig={{
         errorRetryCount: 2,
         provider: localStorageProvider
       }}
-      siteName={getSiteName()}
+      siteName={window.frappe.boot.sitename}
     >
+      <DebugFrappeContext />
       <UserProvider>
         <Toaster richColors />
         <ThemeProvider
