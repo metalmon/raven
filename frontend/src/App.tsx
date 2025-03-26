@@ -332,7 +332,9 @@ function App() {
     protocol: window.location.protocol,
     socketPort: window.frappe?.boot?.socketio_port,
     siteName: window.frappe?.boot?.sitename,
-    wsUrl: `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${window.frappe?.boot?.socketio_port}`
+    wsUrl: window.location.port ? 
+      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${window.frappe?.boot?.socketio_port}` :
+      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}`
   });
 
   // We not need to pass sitename if the Frappe version is v14.
@@ -352,7 +354,7 @@ function App() {
   return (
     <FrappeProvider
       url={window.location.origin}
-      socketPort={(window.frappe.boot.socketio_port ?? 9000).toString()}
+      socketPort={window.location.port ? (window.frappe.boot.socketio_port ?? 9000).toString() : ''}
       swrConfig={{
         errorRetryCount: 2,
         provider: localStorageProvider
