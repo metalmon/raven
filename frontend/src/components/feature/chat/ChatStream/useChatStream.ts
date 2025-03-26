@@ -215,7 +215,7 @@ const useChatStream = (channelID: string, scrollRef: MutableRefObject<HTMLDivEle
     // If there are new messages in the channel, update the messages
     useFrappeEventListener('message_created', (event) => {
         if (event.channel_id === channelID) {
-
+            // Force cache invalidation and immediate UI update for new messages
             mutate((d) => {
                 if (d && d.message.has_new_messages === false) {
                     // Update the array of messages - append the new message in it and then sort it by date
@@ -238,30 +238,18 @@ const useChatStream = (channelID: string, scrollRef: MutableRefObject<HTMLDivEle
                     newMessages.sort((a, b) => {
                         return new Date(b.creation).getTime() - new Date(a.creation).getTime()
                     })
-                    return ({
+                    return {
                         message: {
                             messages: newMessages,
                             has_old_messages: d.message.has_old_messages ?? false,
                             has_new_messages: d.message.has_new_messages ?? false
                         }
-                    })
-                } else {
-                    return d
-                }
-
-            }, {
-                revalidate: false,
-            }).then(() => {
-                if (data?.message.has_new_messages === false) {
-                    if (scrollRef.current) {
-                        const isNearBottom = scrollRef.current.scrollTop + scrollRef.current.clientHeight >=
-                            scrollRef.current.scrollHeight - 100
-
-                        if (isNearBottom || event.message_details.owner === currentUser) {
-                            scrollToBottom('smooth') // Smooth scroll for better UX when user is watching
-                        }
                     }
                 }
+                return d
+            }, {
+                revalidate: true,
+                populateCache: true
             })
         }
     })
@@ -298,55 +286,83 @@ const useChatStream = (channelID: string, scrollRef: MutableRefObject<HTMLDivEle
     })
     // If a message is deleted, update the messages array
     useFrappeEventListener('message_deleted', (event) => {
-
-        mutate((d) => {
-            if (d) {
-                const newMessages = d.message.messages.filter((message) => message.name !== event.message_id)
-                return ({
-                    message: {
-                        messages: newMessages,
-                        has_old_messages: d.message.has_old_messages,
-                        has_new_messages: d.message.has_new_messages
-                    }
-                })
-            } else {
-                return d
-            }
-        }, {
-            revalidate: false,
-        })
-    })
-
-    // If a message has new reactions, update the message
-    useFrappeEventListener('message_reacted', (event) => {
-        mutate(d => {
-            if (event.message_id && d) {
-                const newMessages = d.message.messages.map((message) => {
-                    if (message.name === event.message_id) {
-                        return {
-                            ...message,
-                            message_reactions: event.reactions
+        if (event.channel_id === channelID) {
+            // Force cache invalidation and immediate UI update for deleted messages
+            mutate((d) => {
+                if (d) {
+                    const existingMessages = d.message.messages ?? []
+                    const newMessages = existingMessages.filter(message => message.name !== event.message_id)
+                    return {
+                        message: {
+                            messages: newMessages,
+                            has_old_messages: d.message.has_old_messages ?? false,
+                            has_new_messages: d.message.has_new_messages ?? false
                         }
-                    } else {
-                        return message
                     }
-                })
-
-                return ({
-                    message: {
-                        messages: newMessages,
-                        has_old_messages: d.message.has_old_messages,
-                        has_new_messages: d.message.has_new_messages
-                    }
-                })
-            } else {
+                }
                 return d
-            }
-        }, {
-            revalidate: false,
-        })
+            }, {
+                revalidate: true,
+                populateCache: true
+            })
+        }
     })
 
+    // If a message is updated, update the messages array
+    useFrappeEventListener('message_updated', (event) => {
+        if (event.channel_id === channelID) {
+            // Force cache invalidation and immediate UI update for updated messages
+            mutate((d) => {
+                if (d) {
+                    const existingMessages = d.message.messages ?? []
+                    const newMessages = [...existingMessages]
+                    const messageIndex = existingMessages.findIndex(message => message.name === event.message_id)
+                    if (messageIndex !== -1 && event.message_details) {
+                        newMessages[messageIndex] = event.message_details
+                    }
+                    return {
+                        message: {
+                            messages: newMessages,
+                            has_old_messages: d.message.has_old_messages ?? false,
+                            has_new_messages: d.message.has_new_messages ?? false
+                        }
+                    }
+                }
+                return d
+            }, {
+                revalidate: true,
+                populateCache: true
+            })
+        }
+    })
+
+    // If a reaction is added/removed, update the messages array
+    useFrappeEventListener('reaction_updated', (event) => {
+        if (event.channel_id === channelID) {
+            // Force cache invalidation and immediate UI update for reaction changes
+            mutate((d) => {
+                if (d) {
+                    const existingMessages = d.message.messages ?? []
+                    const newMessages = [...existingMessages]
+                    const messageIndex = existingMessages.findIndex(message => message.name === event.message_id)
+                    if (messageIndex !== -1 && event.message_details) {
+                        newMessages[messageIndex] = event.message_details
+                    }
+                    return {
+                        message: {
+                            messages: newMessages,
+                            has_old_messages: d.message.has_old_messages ?? false,
+                            has_new_messages: d.message.has_new_messages ?? false
+                        }
+                    }
+                }
+                return d
+            }, {
+                revalidate: true,
+                populateCache: true
+            })
+        }
+    })
 
     // If a message is saved/unsaved, update the message
     useFrappeEventListener('message_saved', (event) => {

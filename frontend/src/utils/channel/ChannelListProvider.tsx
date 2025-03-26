@@ -94,11 +94,24 @@ const useFetchChannelList = (): ChannelListContextType => {
     /** 
      * If a bulk import happens, this gets called multiple times potentially causing the server to go down.
      * Instead, throttle this - wait for all events to subside
+     * 
+     * Changes made:
+     * 1. Removed throttling logic with setNewUpdatesAvailable
+     * 2. Added forced cache invalidation with revalidate: true
+     * 3. Added populateCache: true to ensure immediate UI updates
+     * 4. Added global mutation for unread_channel_count to keep it in sync
      */
     useFrappeEventListener('channel_list_updated', () => {
-        if (!rest.isValidating) {
-            setNewUpdatesAvailable((n) => n + 1)
-        }
+        // Force cache invalidation for channel list
+        mutate(undefined, {
+            revalidate: true,
+            populateCache: true
+        })
+        // Also update unread channel count to keep it in sync
+        globalMutate('unread_channel_count', undefined, {
+            revalidate: true,
+            populateCache: true
+        })
     })
 
     const { sortedChannels, sortedDMChannels } = useMemo(() => {
