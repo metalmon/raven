@@ -34,13 +34,27 @@ class RavenChannelMember(Document):
 			and not self.flags.in_insert
 			and not self.flags.ignore_permissions
 		):
-			# Check if the user is an existing admin of the channel
-			if not frappe.db.exists(
-				"Raven Channel Member",
-				{"channel_id": self.channel_id, "user_id": frappe.session.user, "is_admin": 1},
-			):
+
+			member = frappe.db.exists(
+				"Raven Channel Member", {"channel_id": self.channel_id, "user_id": frappe.session.user}
+			)
+			if member:
+				if "Raven Admin" in frappe.get_roles():
+					pass
+				elif frappe.db.get_value("Raven Channel Member", member, "is_admin") == 1:
+					pass
+				else:
+					frappe.throw(
+						_(
+							"You don't have permission to assign admins to this channel. Please ask another admin to do this."
+						),
+						frappe.PermissionError,
+					)
+			else:
 				frappe.throw(
-					_("You cannot make yourself an admin of a channel. Please ask another admin to do this."),
+					_(
+						"You don't have permission to assign admins to this channel. Please ask another admin to do this."
+					),
 					frappe.PermissionError,
 				)
 
@@ -186,27 +200,26 @@ class RavenChannelMember(Document):
 		if not is_direct_message:
 
 			# Send a system message to the channel mentioning the member who joined
-			if not is_thread:
-				member_name = frappe.get_cached_value("Raven User", self.user_id, "full_name")
-				if self.user_id == frappe.session.user:
-					frappe.get_doc(
-						{
-							"doctype": "Raven Message",
-							"channel_id": self.channel_id,
-							"message_type": "System",
-							"text": f"{member_name} joined.",
-						}
-					).insert(ignore_permissions=True)
-				else:
-					current_user_name = frappe.get_cached_value("Raven User", frappe.session.user, "full_name")
-					frappe.get_doc(
-						{
-							"doctype": "Raven Message",
-							"channel_id": self.channel_id,
-							"message_type": "System",
-							"text": f"{current_user_name} added {member_name}.",
-						}
-					).insert(ignore_permissions=True)
+			member_name = frappe.get_cached_value("Raven User", self.user_id, "full_name")
+			if self.user_id == frappe.session.user:
+				frappe.get_doc(
+					{
+						"doctype": "Raven Message",
+						"channel_id": self.channel_id,
+						"message_type": "System",
+						"text": f"{member_name} joined.",
+					}
+				).insert(ignore_permissions=True)
+			else:
+				current_user_name = frappe.get_cached_value("Raven User", frappe.session.user, "full_name")
+				frappe.get_doc(
+					{
+						"doctype": "Raven Message",
+						"channel_id": self.channel_id,
+						"message_type": "System",
+						"text": f"{current_user_name} added {member_name}.",
+					}
+				).insert(ignore_permissions=True)
 
 		self.invalidate_channel_members_cache()
 
@@ -214,18 +227,16 @@ class RavenChannelMember(Document):
 		"""
 		Check if the notification preference is changed and update the subscription
 		"""
-		old_doc = self.get_doc_before_save()
-		if old_doc:
-			if old_doc.allow_notifications != self.allow_notifications:
-				is_direct_message = frappe.get_cached_value(
-					"Raven Channel", self.channel_id, "is_direct_message"
-				)
+		if self.has_value_changed("allow_notifications"):
+			is_direct_message = frappe.get_cached_value(
+				"Raven Channel", self.channel_id, "is_direct_message"
+			)
 
-				if not is_direct_message:
-					if self.allow_notifications:
-						subscribe_user_to_topic(self.channel_id, self.user_id)
-					else:
-						unsubscribe_user_to_topic(self.channel_id, self.user_id)
+			if not is_direct_message:
+				if self.allow_notifications:
+					subscribe_user_to_topic(self.channel_id, self.user_id)
+				else:
+					unsubscribe_user_to_topic(self.channel_id, self.user_id)
 
 		if self.has_value_changed("is_admin") and not self.flags.in_insert and not self.is_thread():
 			# Send a system message to the channel mentioning the member who became admin

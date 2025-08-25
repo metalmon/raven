@@ -17,9 +17,9 @@ type TicketType = "Feedback" | "Question" | "Bug"
 const subTitles: Record<TicketType, { heading: string, subHeading: string, defaultTextAreaValue: string, footerHeading: ReactNode }> = {
     "Feedback": {
         heading: "Send feedback",
-        subHeading: "How can we improve Linear? If you have a feature request, can you also share how you would use it and why it's important to you?",
+        subHeading: "How can we improve Raven? If you have a feature request, can you also share how you would use it and why it's important to you?",
         defaultTextAreaValue: "What if...",
-        footerHeading: <span>You can also email us at <Link href="mailto:support@thecommit.company" underline="none" size='1' target="_blank">support@thecommit.company</Link> We can't respond to every request but we read all of them.</span>
+        footerHeading: <span>You can also email us at <Link href="mailto:support@thecommit.company" underline="none" size='1' target="_blank">support@thecommit.company</Link>. We can't respond to every request but we read all of them.</span>
     },
     "Question": {
         heading: "Ask a question",
@@ -83,11 +83,14 @@ const SupportRequestForm = ({ onClose }: SupportRequestFormProps) => {
     const { call, error, loading } = useFrappePostCall('raven.api.support_request.submit_support_request')
 
     const onSubmit = (data: SupportRequestFormFields) => {
+
+        // @ts-expect-error
+        const context = `Raven: v${frappe?.boot.versions.raven}, Frappe: v${frappe?.boot.versions.frappe}, ERPNext: v${frappe?.boot.versions.erpnext ?? "N/A"}`
         call({
             email: data.email,
             ticket_type: data.ticket_type,
             subject: data.description.substring(0, 140),
-            description: data.description
+            description: data.description + `<br><br>${context}`,
         })
             .then(() => {
                 toast.success("Form submitted successfully!")
